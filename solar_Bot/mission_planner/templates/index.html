@@ -1,0 +1,219 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Solar Bot — Mission Planner</title>
+
+  <link rel="stylesheet"
+        href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"
+        crossorigin="" />
+  <link rel="stylesheet"
+        href="https://unpkg.com/leaflet-draw@1.0.4/dist/leaflet.draw.css" />
+  <link rel="stylesheet"
+        href="{{ url_for('static', filename='css/style.css') }}" />
+</head>
+<body>
+
+<!-- ─── Top bar ────────────────────────────────────────────────────────── -->
+<header class="topbar">
+  <div class="brand">
+    <span class="logo">☀</span>
+    <div>
+      <div class="title">Solar Bot Mission Planner</div>
+      <div class="subtitle">v{{ version }} · QGC-style coverage planner</div>
+    </div>
+  </div>
+
+  <div class="status-strip">
+    <div class="chip" id="chip-mode">
+      <span class="dot"></span><span>MODE</span><b id="lbl-mode">GPS</b>
+    </div>
+    <div class="chip" id="chip-gps">
+      <span class="dot"></span><span>GPS</span><b id="lbl-gps">—</b>
+    </div>
+    <div class="chip" id="chip-link">
+      <span class="dot"></span><span>PICO</span><b id="lbl-link">offline</b>
+    </div>
+    <div class="chip" id="chip-batt">
+      <span class="dot"></span><span>BAT</span><b id="lbl-batt">—</b>
+    </div>
+    <div class="chip" id="chip-tilt">
+      <span class="dot"></span><span>TILT</span><b id="lbl-tilt">0.0°</b>
+    </div>
+    <div class="chip danger" id="chip-estop" hidden>
+      <span class="dot"></span><b>E-STOP</b>
+    </div>
+  </div>
+
+  <button id="btn-estop" class="btn-estop" title="Emergency stop">⏹ E-STOP</button>
+</header>
+
+<!-- ─── Main layout ────────────────────────────────────────────────────── -->
+<main class="layout">
+
+  <!-- Left rail: planning + missions -->
+  <aside class="rail rail-left">
+
+    <section class="card">
+      <header><h2>① Boundary</h2></header>
+      <div class="card-body">
+        <p class="hint">Click <b>polygon</b> in the toolbar (top-left of the map),
+          drop ≥ 3 corners, then double-click to finish.</p>
+        <div class="row">
+          <button id="btn-clear"  class="btn ghost">Clear</button>
+          <button id="btn-recenter" class="btn ghost">Recenter</button>
+        </div>
+        <div class="kvs">
+          <div><span>Vertices</span><b id="kv-verts">0</b></div>
+          <div><span>Area</span><b id="kv-area">— m²</b></div>
+        </div>
+      </div>
+    </section>
+
+    <section class="card">
+      <header><h2>② Coverage Plan</h2></header>
+      <div class="card-body">
+
+        <label class="slider-row">
+          <div>Cleaning width <small id="lbl-width">0.40 m</small></div>
+          <input id="r-width"   type="range" min="0.20" max="2.00" step="0.05" value="0.40">
+        </label>
+
+        <label class="slider-row">
+          <div>Overlap <small id="lbl-overlap">10 %</small></div>
+          <input id="r-overlap" type="range" min="0" max="50" step="1" value="10">
+        </label>
+
+        <label class="slider-row">
+          <div>Sweep angle <small id="lbl-angle">auto</small></div>
+          <input id="r-angle"   type="range" min="-90" max="90" step="5" value="0">
+          <button id="btn-angle-auto" class="btn-link">↺ auto</button>
+        </label>
+
+        <label class="slider-row">
+          <div>Cruise speed <small id="lbl-speed">45 %</small></div>
+          <input id="r-speed"   type="range" min="20" max="100" step="5" value="45">
+        </label>
+
+        <label class="check">
+          <input id="cb-rth" type="checkbox" checked>
+          Return to home after coverage
+        </label>
+
+        <button id="btn-generate" class="btn primary block">Generate path</button>
+
+        <div class="kvs">
+          <div><span>Lanes</span><b id="kv-rows">—</b></div>
+          <div><span>Distance</span><b id="kv-dist">— m</b></div>
+          <div><span>Spacing</span><b id="kv-spacing">— m</b></div>
+          <div><span>ETA</span><b id="kv-eta">—</b></div>
+        </div>
+      </div>
+    </section>
+
+    <section class="card">
+      <header>
+        <h2>③ Missions</h2>
+        <button id="btn-save" class="btn-link" title="Save current">＋ save</button>
+      </header>
+      <div class="card-body">
+        <input id="mission-name" class="input" placeholder="Mission name…">
+        <ul id="mission-list" class="mission-list"></ul>
+      </div>
+    </section>
+  </aside>
+
+  <!-- Map -->
+  <section class="map-wrap">
+    <div id="map"></div>
+
+    <!-- HUD overlay -->
+    <div class="hud">
+      <div class="hud-card">
+        <div class="hud-num"><span>Speed</span><b id="hud-speed">0.0</b><i>cm/s</i></div>
+        <div class="hud-num"><span>Heading</span><b id="hud-heading">0°</b></div>
+        <div class="hud-num"><span>Sats</span><b id="hud-sats">0</b></div>
+        <div class="hud-num"><span>HDOP</span><b id="hud-hdop">—</b></div>
+      </div>
+    </div>
+
+    <!-- Mode toggle on map -->
+    <div class="map-mode">
+      <button class="seg active"   data-mode="gps">GPS</button>
+      <button class="seg"          data-mode="non_gps">No GPS</button>
+    </div>
+  </section>
+
+  <!-- Right rail: control + telemetry -->
+  <aside class="rail rail-right">
+
+    <section class="card">
+      <header><h2>④ Run Mission</h2></header>
+      <div class="card-body">
+        <div class="run-row">
+          <button id="btn-start"  class="btn primary">▶ Start</button>
+          <button id="btn-pause"  class="btn warn">❚❚ Pause</button>
+          <button id="btn-resume" class="btn ghost">▶ Resume</button>
+          <button id="btn-abort"  class="btn danger">■ Abort</button>
+        </div>
+
+        <div class="progress">
+          <div class="bar"><div id="bar-fill"></div></div>
+          <div class="progress-meta">
+            <span id="prg-state">idle</span>
+            <span id="prg-wp">0/0</span>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <section class="card">
+      <header><h2>⑤ Telemetry</h2></header>
+      <div class="card-body">
+        <div class="kvs">
+          <div><span>WP</span><b id="t-wp">0/0</b></div>
+          <div><span>Distance</span><b id="t-dist">— m</b></div>
+          <div><span>Bearing</span><b id="t-bearing">—°</b></div>
+          <div><span>Heading</span><b id="t-heading">—°</b></div>
+          <div><span>Steer</span><b id="t-steer">0</b></div>
+          <div><span>Throttle</span><b id="t-throttle">0</b></div>
+          <div><span>Position src</span><b id="t-src">none</b></div>
+          <div><span>Pose lat</span><b id="t-lat">—</b></div>
+          <div><span>Pose lon</span><b id="t-lon">—</b></div>
+        </div>
+      </div>
+    </section>
+
+    <section class="card">
+      <header><h2>⑥ Manual Drive</h2></header>
+      <div class="card-body">
+        <div class="dpad">
+          <button class="dpad-btn fwd"   data-steer="0"   data-thr="40">▲</button>
+          <button class="dpad-btn left"  data-steer="-60" data-thr="30">◀</button>
+          <button class="dpad-btn stop"  data-steer="0"   data-thr="0">■</button>
+          <button class="dpad-btn right" data-steer="60"  data-thr="30">▶</button>
+          <button class="dpad-btn back"  data-steer="0"   data-thr="0">▼</button>
+        </div>
+        <p class="hint">Hold a direction to drive. Release to stop.</p>
+      </div>
+    </section>
+
+    <section class="card">
+      <header><h2>⑦ Events</h2></header>
+      <div class="card-body">
+        <ul id="event-log" class="event-log"></ul>
+      </div>
+    </section>
+  </aside>
+</main>
+
+<!-- Toast container -->
+<div id="toast-host"></div>
+
+<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js" crossorigin=""></script>
+<script src="https://unpkg.com/leaflet-draw@1.0.4/dist/leaflet.draw.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/socket.io/4.7.5/socket.io.min.js"></script>
+<script src="{{ url_for('static', filename='js/app.js') }}"></script>
+</body>
+</html>

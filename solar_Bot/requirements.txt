@@ -1,0 +1,9 @@
+Flask>=3.0
+Flask-SocketIO>=5.3
+pyserial>=3.5
+pynmea2>=1.19
+PyYAML>=6.0
+
+# dev / test
+pytest>=8.0
+pytest-cov>=4.1

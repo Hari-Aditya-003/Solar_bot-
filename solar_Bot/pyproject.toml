@@ -1,0 +1,51 @@
+[build-system]
+requires = ["setuptools>=68"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "solar-bot"
+version = "2.0.0"
+description = "Solar panel cleaning robot — mission planner + dual-mode autopilot"
+readme = "README.md"
+requires-python = ">=3.10"
+dependencies = [
+  "Flask>=3.0",
+  "Flask-SocketIO>=5.3",
+  "eventlet; platform_system != 'Windows'",
+  "pyserial>=3.5",
+  "pynmea2>=1.19",
+  "PyYAML>=6.0",
+]
+
+[project.optional-dependencies]
+dev = [
+  "pytest>=8.0",
+  "pytest-cov>=4.1",
+  "black>=24.0",
+  "isort>=5.13",
+  "ruff>=0.4",
+]
+
+[tool.pytest.ini_options]
+markers = [
+  "unit: fast, isolated unit tests",
+  "integration: tests that touch hardware or network",
+]
+testpaths = ["tests"]
+addopts = "-v"
+
+[tool.ruff]
+line-length = 100
+target-version = "py310"
+
+[tool.ruff.lint]
+select = ["E", "F", "W", "I", "B", "UP"]
+ignore = ["E501"]
+
+[tool.black]
+line-length = 100
+target-version = ["py310"]
+
+[tool.isort]
+profile = "black"
+line_length = 100

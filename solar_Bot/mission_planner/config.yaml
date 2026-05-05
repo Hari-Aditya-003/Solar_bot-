@@ -1,0 +1,53 @@
+# Solar Panel Cleaning Robot — runtime configuration
+# Override any value here; missing values fall back to defaults in config.py.
+
+hardware:
+  gps_port:        /dev/ttyAMA2
+  gps_baud:        9600
+  pico_port:       /dev/ttyAMA4
+  pico_baud:       115200
+  pico_transport:  uart           # uart | udp
+  pico_udp_host:   192.168.4.1
+  pico_udp_port:   5005
+
+robot:
+  wheel_diameter_cm:      6.5
+  wheel_circumference_cm: 20.42
+  track_width_cm:         18.0
+  max_speed_cms:          68.0
+  cleaning_width_m:       0.40
+  battery_full_mv:        12600
+  battery_empty_mv:       9000
+
+navigation:
+  target_speed_pct:        45
+  accept_radius_m:         0.8
+  kp_steer:                1.4
+  ki_steer:                0.05
+  kd_steer:                0.30
+  nav_rate_hz:             10
+  heading_filter_alpha:    0.85
+  drift_correct_max_deg:   25.0
+  end_of_lane_distance_m:  0.20
+
+planner:
+  row_spacing_m:    0.50
+  overlap_pct:      10.0
+  sweep_angle_deg:  null            # null = auto (longest boundary edge)
+  return_to_home:   true
+  min_polygon_points: 3
+
+safety:
+  geofence_buffer_m:     0.50
+  tilt_limit_deg:        30.0
+  battery_low_pct:       15
+  battery_critical_pct:  5
+  comms_timeout_s:       2.0
+  gps_timeout_s:         3.0
+  obstacle_distance_cm:  25.0
+
+server:
+  host:           0.0.0.0
+  port:           5000
+  socketio_ping:  25
+  log_level:      INFO
