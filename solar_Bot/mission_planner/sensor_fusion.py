@@ -33,7 +33,7 @@ import time
 from dataclasses import dataclass, field
 
 from .config import NavigationConfig
-from .geo import LatLon, M_PER_DEG_LAT
+from .geo import M_PER_DEG_LAT, LatLon
 
 log = logging.getLogger(__name__)
 
@@ -150,6 +150,15 @@ class Estimator:
         """Reset the gyro→true-north offset (e.g. after a known turn)."""
         with self._lock:
             self._yaw_offset = (gyro_yaw_deg - true_heading_deg) % 360.0
+            if self._pose.source != "gps":
+                self._pose = Pose(
+                    lat=self._pose.lat,
+                    lon=self._pose.lon,
+                    heading_deg=true_heading_deg % 360.0,
+                    speed_ms=self._pose.speed_ms,
+                    has_position=self._pose.has_position,
+                    source=self._pose.source,
+                )
             log.info("Yaw calibrated: offset=%.1f°", self._yaw_offset)
 
     def set_anchor(self, lat: float, lon: float) -> None:

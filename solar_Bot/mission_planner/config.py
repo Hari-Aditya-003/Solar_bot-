@@ -9,7 +9,7 @@ Override at runtime with ``--config /path/to/config.yaml``.
 from __future__ import annotations
 
 import logging
-from dataclasses import dataclass, field, asdict
+from dataclasses import asdict, dataclass, field
 from pathlib import Path
 from typing import Any
 
@@ -28,13 +28,23 @@ log = logging.getLogger(__name__)
 class HardwareConfig:
     """Serial / UART / GPIO settings."""
 
-    gps_port: str = "/dev/ttyAMA2"
+    gps_port: str = "auto"
     gps_baud: int = 9600
+    radio_port: str = "/dev/ttyAMA0"
+    radio_baud: int = 460_800
     pico_port: str = "/dev/ttyAMA4"
     pico_baud: int = 115200
     pico_transport: str = "uart"  # "uart" | "udp"
     pico_udp_host: str = "192.168.4.1"
     pico_udp_port: int = 5005
+    radio_steer_channel: int = 4
+    radio_throttle_channel: int = 2
+    radio_steer_invert: bool = False
+    radio_throttle_invert: bool = False
+    radio_mark_channel: int = 6
+    radio_plan_channel: int = 7
+    radio_abort_channel: int = 8
+    radio_switch_high_us: int = 1700
 
 
 @dataclass(frozen=True)
@@ -63,6 +73,10 @@ class NavigationConfig:
     heading_filter_alpha: float = 0.85    # complementary filter weight
     drift_correct_max_deg: float = 25.0   # cap on instantaneous correction
     end_of_lane_distance_m: float = 0.20  # non-GPS: extra past last WP before turn
+    non_gps_turn_in_place_deg: float = 18.0
+    non_gps_turn_steer_pct: int = 65
+    non_gps_transition_speed_pct: int = 28
+    non_gps_transition_max_m: float = 1.2
 
 
 @dataclass(frozen=True)
@@ -84,6 +98,7 @@ class SafetyConfig:
     tilt_limit_deg: float = 30.0
     battery_low_pct: int = 15
     battery_critical_pct: int = 5
+    ignore_battery_for_testing: bool = False
     comms_timeout_s: float = 2.0          # last STATUS heard from Pico
     gps_timeout_s: float = 3.0            # last fix age
     obstacle_distance_cm: float = 25.0    # if ultrasonic added later

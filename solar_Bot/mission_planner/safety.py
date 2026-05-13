@@ -76,7 +76,12 @@ class SafetyMonitor:
 
     # ── Geofence ──────────────────────────────────────────────────────────
 
-    def set_geofence(self, boundary: list[LatLon]) -> None:
+    def set_geofence(
+        self,
+        boundary: list[LatLon],
+        *,
+        buffer_m: float | None = None,
+    ) -> None:
         if len(boundary) < 3:
             with self._lock:
                 self._geofence_local = []
@@ -84,12 +89,17 @@ class SafetyMonitor:
             return
         ref = boundary[0]
         local = [latlon_to_xy(p, ref) for p in boundary]
-        shrunk = shrink_polygon(local, self.cfg.geofence_buffer_m)
+        effective_buffer = (
+            self.cfg.geofence_buffer_m
+            if buffer_m is None
+            else buffer_m
+        )
+        shrunk = shrink_polygon(local, effective_buffer)
         with self._lock:
             self._geofence_local = shrunk
             self._geofence_ref = ref
         log.info("Geofence set: %d vertices, %.2f m buffer",
-                 len(shrunk), self.cfg.geofence_buffer_m)
+                 len(shrunk), effective_buffer)
 
     def inside_fence(self, p: LatLon) -> bool:
         with self._lock:
@@ -127,7 +137,10 @@ class SafetyMonitor:
             reasons.append(f"Tilt {tilt_deg:.1f}° > limit")
             verdict = SafetyVerdict.STOP
 
-        if battery_pct <= self.cfg.battery_critical_pct:
+        if (
+            not self.cfg.ignore_battery_for_testing
+            and battery_pct <= self.cfg.battery_critical_pct
+        ):
             reasons.append(f"Battery critical ({battery_pct}%)")
             verdict = SafetyVerdict.STOP
 
@@ -142,7 +155,10 @@ class SafetyMonitor:
             verdict = SafetyVerdict.STOP
 
         if verdict != SafetyVerdict.STOP:
-            if battery_pct <= self.cfg.battery_low_pct:
+            if (
+                not self.cfg.ignore_battery_for_testing
+                and battery_pct <= self.cfg.battery_low_pct
+            ):
                 reasons.append(f"Battery low ({battery_pct}%)")
                 verdict = SafetyVerdict.WARN
             if (

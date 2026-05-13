@@ -8,7 +8,8 @@ reference point.  This is accurate to a few cm over panel-cleaning sized fields
 from __future__ import annotations
 
 import math
-from typing import NamedTuple, Sequence
+from collections.abc import Sequence
+from typing import NamedTuple
 
 # ─── Constants ────────────────────────────────────────────────────────────────
 

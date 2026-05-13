@@ -2,14 +2,11 @@
 
 from __future__ import annotations
 
-import time
-
 import pytest
 
 from mission_planner.config import SafetyConfig
 from mission_planner.geo import LatLon
 from mission_planner.safety import SafetyMonitor, SafetyVerdict
-
 
 SQUARE = [
     LatLon(0.0, 0.0),
@@ -41,6 +38,17 @@ def test_geofence_violation_stops() -> None:
 
 
 @pytest.mark.unit
+def test_geofence_buffer_override_can_expand_route_margin() -> None:
+    sm = SafetyMonitor(SafetyConfig(geofence_buffer_m=0.5, comms_timeout_s=999))
+    sm.set_geofence(SQUARE, buffer_m=-0.2)
+    sm.mark_status_received()
+    near_edge = LatLon(-0.000001, 0.00005)
+    rep = sm.evaluate(position=near_edge, tilt_deg=0,
+                      battery_pct=100, gps_mode=True)
+    assert rep.verdict is SafetyVerdict.OK
+
+
+@pytest.mark.unit
 def test_tilt_limit_stops() -> None:
     sm = SafetyMonitor(SafetyConfig(comms_timeout_s=999))
     sm.mark_status_received()
@@ -67,6 +75,21 @@ def test_battery_critical_stops() -> None:
     rep = sm.evaluate(position=None, tilt_deg=0,
                       battery_pct=5, gps_mode=True)
     assert rep.verdict is SafetyVerdict.STOP
+
+
+@pytest.mark.unit
+def test_battery_can_be_ignored_for_indoor_testing() -> None:
+    sm = SafetyMonitor(
+        SafetyConfig(
+            comms_timeout_s=999,
+            battery_critical_pct=10,
+            ignore_battery_for_testing=True,
+        )
+    )
+    sm.mark_status_received()
+    rep = sm.evaluate(position=None, tilt_deg=0,
+                      battery_pct=0, gps_mode=True)
+    assert rep.verdict is SafetyVerdict.OK
 
 
 @pytest.mark.unit

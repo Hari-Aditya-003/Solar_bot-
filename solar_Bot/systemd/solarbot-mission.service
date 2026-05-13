@@ -1,0 +1,18 @@
+[Unit]
+Description=Solar Bot Mission Planner
+Wants=network-online.target
+After=network-online.target solarbot-hotspot.service
+
+[Service]
+Type=simple
+User=solar_bot
+Group=solar_bot
+SupplementaryGroups=dialout gpio i2c spi
+WorkingDirectory=/home/solar_bot/Desktop/Solar_bot-/solar_Bot
+Environment=PYTHONUNBUFFERED=1
+ExecStart=/home/solar_bot/Desktop/Solar_bot-/.venv/bin/python -m mission_planner.app
+Restart=always
+RestartSec=5
+
+[Install]
+WantedBy=multi-user.target

@@ -6,10 +6,10 @@ Run with transmitter ON and RP3 V2 powered and bound.
 Usage:  python3 test_uart_scan.py
         sudo python3 test_uart_scan.py   (if permission errors)
 """
-import serial
-import time
-import os
 import glob
+import time
+
+import serial
 
 BAUD    = 420000
 TIMEOUT = 1.5   # seconds per port

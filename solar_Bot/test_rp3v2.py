@@ -15,12 +15,14 @@ If permission denied, run once:  sudo bash fix_uart_permissions.sh
 Protocol auto-detected: CRSF (420000 baud) or MAVLink (115200 baud)
 """
 
-import serial
-import time
-import sys
 import os
 import signal
+import sys
+import time
 from collections import deque
+
+import serial
+
 SERIAL_PORT   = "/dev/ttyAMA0"   # GPIO Pin 10 (RX) on RPi 5 40-pin header
 
 # ─── Configuration ────────────────────────────────────────────────────────────
@@ -354,9 +356,6 @@ def live_monitor(ser, parser, duration=TEST_DURATION):
                 print(f"  {idx:>3}  {name:<8}  "
                       f"{state_color}{lbl}\033[0m  {us:6d} µs")
 
-            # ── All 16 raw values ─────────────────────────────────────────
-            raw_line = "  RAW: " + "  ".join(
-                f"CH{i+1}:{ch[i]:4d}" for i in range(16))
             # Split into two lines of 8
             print("\n  RAW CRSF values (172=min  992=ctr  1811=max):")
             print("  " + "  ".join(f"CH{i+1:02d}:{ch[i]:4d}" for i in range(8)))
@@ -384,13 +383,13 @@ def live_monitor(ser, parser, duration=TEST_DURATION):
                 else:
                     print(f"\n  Status: SIGNAL OK  ({frame_count} frames received)")
             else:
-                print(f"\n  Status: Waiting for RC frames...")
+                print("\n  Status: Waiting for RC frames...")
 
             remaining = deadline - time.time()
             if duration > 0:
                 print(f"  Auto-stop in: {remaining:.0f}s   Ctrl+C to stop early")
             else:
-                print(f"  Ctrl+C to stop")
+                print("  Ctrl+C to stop")
 
     signal.signal(signal.SIGINT, signal.SIG_DFL)
     print("\n\nMonitor stopped.")
@@ -412,12 +411,9 @@ def print_summary(parser, frame_count):
     print(f"  Throttle CH3 : {crsf_to_us(ch[2])} µs  "
           f"({crsf_to_pct(ch[2]):+.1f}%)")
 
-    any_active = False
     for idx in range(5, 13):
         raw = ch[idx - 1]
         us  = crsf_to_us(raw)
-        if abs(us - 1500) > 100:
-            any_active = True
         print(f"  Switch  CH{idx:<2}  : {us} µs  [{switch_label(raw).strip()}]")
 
     print()

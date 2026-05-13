@@ -11,7 +11,7 @@
   <link rel="stylesheet"
         href="https://unpkg.com/leaflet-draw@1.0.4/dist/leaflet.draw.css" />
   <link rel="stylesheet"
-        href="{{ url_for('static', filename='css/style.css') }}" />
+        href="{{ url_for('static', filename='css/style.css', v=static_version) }}" />
 </head>
 <body>
 
@@ -34,6 +34,9 @@
     </div>
     <div class="chip" id="chip-link">
       <span class="dot"></span><span>PICO</span><b id="lbl-link">offline</b>
+    </div>
+    <div class="chip" id="chip-radio">
+      <span class="dot"></span><span>RADIO</span><b id="lbl-radio">offline</b>
     </div>
     <div class="chip" id="chip-batt">
       <span class="dot"></span><span>BAT</span><b id="lbl-batt">—</b>
@@ -60,13 +63,23 @@
       <div class="card-body">
         <p class="hint">Click <b>polygon</b> in the toolbar (top-left of the map),
           drop ≥ 3 corners, then double-click to finish.</p>
+        <p class="hint">Or drive the robot, tap <b>Save Point</b> at each corner,
+          then <b>Close + Generate</b>. Radio: <b>SB</b> save, <b>SC</b> generate/start,
+          <b>SD</b> reset.</p>
         <div class="row">
           <button id="btn-clear"  class="btn ghost">Clear</button>
           <button id="btn-recenter" class="btn ghost">Recenter</button>
         </div>
+        <div class="row" style="margin-top: 8px;">
+          <button id="btn-mark-point" class="btn">Save Point</button>
+          <button id="btn-close-loop" class="btn primary">Close + Generate</button>
+          <button id="btn-reset-drive" class="btn danger">Reset</button>
+        </div>
         <div class="kvs">
           <div><span>Vertices</span><b id="kv-verts">0</b></div>
           <div><span>Area</span><b id="kv-area">— m²</b></div>
+          <div><span>Drive points</span><b id="kv-drive-points">0</b></div>
+          <div><span>Capture</span><b id="kv-capture">idle</b></div>
         </div>
       </div>
     </section>
@@ -74,6 +87,12 @@
     <section class="card">
       <header><h2>② Coverage Plan</h2></header>
       <div class="card-body">
+
+        <div class="inline-seg" id="path-mode">
+          <button class="seg active" data-path-mode="coverage" type="button">Coverage Lanes</button>
+          <button class="seg" data-path-mode="boundary" type="button">Boundary Route</button>
+        </div>
+        <p class="hint" id="plan-mode-hint">Generate lawnmower lanes inside the boundary.</p>
 
         <label class="slider-row">
           <div>Cleaning width <small id="lbl-width">0.40 m</small></div>
@@ -98,13 +117,13 @@
 
         <label class="check">
           <input id="cb-rth" type="checkbox" checked>
-          Return to home after coverage
+          <span id="lbl-rth">Return to home after coverage</span>
         </label>
 
         <button id="btn-generate" class="btn primary block">Generate path</button>
 
         <div class="kvs">
-          <div><span>Lanes</span><b id="kv-rows">—</b></div>
+          <div><span id="kv-rows-label">Lanes</span><b id="kv-rows">—</b></div>
           <div><span>Distance</span><b id="kv-dist">— m</b></div>
           <div><span>Spacing</span><b id="kv-spacing">— m</b></div>
           <div><span>ETA</span><b id="kv-eta">—</b></div>
@@ -133,9 +152,17 @@
       <div class="hud-card">
         <div class="hud-num"><span>Speed</span><b id="hud-speed">0.0</b><i>cm/s</i></div>
         <div class="hud-num"><span>Heading</span><b id="hud-heading">0°</b></div>
+        <div class="hud-num"><span>Motion</span><b id="hud-motion">idle</b></div>
+        <div class="hud-num"><span>Pose</span><b id="hud-pose">none</b></div>
         <div class="hud-num"><span>Sats</span><b id="hud-sats">0</b></div>
         <div class="hud-num"><span>HDOP</span><b id="hud-hdop">—</b></div>
+        <div class="hud-num"><span>GPS Q</span><b id="hud-gps-quality">—</b></div>
+        <div class="hud-num"><span>Acc</span><b id="hud-accuracy">—</b><i>m</i></div>
       </div>
+    </div>
+
+    <div class="map-follow">
+      <button id="btn-follow" class="btn-map active" type="button">Follow robot</button>
     </div>
 
     <!-- Mode toggle on map -->
@@ -176,8 +203,20 @@
           <div><span>Distance</span><b id="t-dist">— m</b></div>
           <div><span>Bearing</span><b id="t-bearing">—°</b></div>
           <div><span>Heading</span><b id="t-heading">—°</b></div>
+          <div><span>IMU yaw</span><b id="t-imu-yaw">—°</b></div>
+          <div><span>IMU link</span><b id="t-imu-link">offline</b></div>
+          <div><span>RC steer</span><b id="t-rc-steer">0%</b></div>
+          <div><span>RC thr</span><b id="t-rc-throttle">0%</b></div>
           <div><span>Steer</span><b id="t-steer">0</b></div>
           <div><span>Throttle</span><b id="t-throttle">0</b></div>
+          <div><span>Roll</span><b id="t-roll">—°</b></div>
+          <div><span>Pitch</span><b id="t-pitch">—°</b></div>
+          <div><span>RC link</span><b id="t-rc-link">offline</b></div>
+          <div><span>RC mode</span><b id="t-rc-mode">idle</b></div>
+          <div><span>GPS sats</span><b id="t-gps-sats">—</b></div>
+          <div><span>Sat quality</span><b id="t-gps-sat-quality">—</b></div>
+          <div><span>HDOP quality</span><b id="t-gps-hdop-quality">—</b></div>
+          <div><span>GPS accuracy</span><b id="t-gps-accuracy">—</b></div>
           <div><span>Position src</span><b id="t-src">none</b></div>
           <div><span>Pose lat</span><b id="t-lat">—</b></div>
           <div><span>Pose lon</span><b id="t-lon">—</b></div>
@@ -190,10 +229,10 @@
       <div class="card-body">
         <div class="dpad">
           <button class="dpad-btn fwd"   data-steer="0"   data-thr="40">▲</button>
-          <button class="dpad-btn left"  data-steer="-60" data-thr="30">◀</button>
+          <button class="dpad-btn left"  data-steer="-65" data-thr="0">◀</button>
           <button class="dpad-btn stop"  data-steer="0"   data-thr="0">■</button>
-          <button class="dpad-btn right" data-steer="60"  data-thr="30">▶</button>
-          <button class="dpad-btn back"  data-steer="0"   data-thr="0">▼</button>
+          <button class="dpad-btn right" data-steer="65"  data-thr="0">▶</button>
+          <button class="dpad-btn back"  data-steer="0"   data-thr="-40">▼</button>
         </div>
         <p class="hint">Hold a direction to drive. Release to stop.</p>
       </div>
@@ -214,6 +253,6 @@
 <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js" crossorigin=""></script>
 <script src="https://unpkg.com/leaflet-draw@1.0.4/dist/leaflet.draw.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/socket.io/4.7.5/socket.io.min.js"></script>
-<script src="{{ url_for('static', filename='js/app.js') }}"></script>
+<script src="{{ url_for('static', filename='js/app.js', v=static_version) }}"></script>
 </body>
 </html>

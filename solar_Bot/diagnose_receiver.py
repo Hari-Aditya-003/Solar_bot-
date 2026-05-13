@@ -5,10 +5,11 @@ Dumps raw bytes and scans baud rates to identify what the RP3 V2 is outputting.
 
 Usage:  python3 diagnose_receiver.py
 """
-import serial
-import time
-import sys
 import os
+import sys
+import time
+
+import serial
 
 PORT = "/dev/ttyAMA0"
 
@@ -170,7 +171,7 @@ def main():
     if best_baud is None:
         data_420 = results.get(420_000, b"")
         good, bad = try_crsf_parse(data_420)
-        print(f"  No baud rate yielded valid CRSF frames.")
+        print("  No baud rate yielded valid CRSF frames.")
         print()
         if bad > 0 and good == 0:
             print("  CRC errors at 420000 suggest a baud rate mismatch.")

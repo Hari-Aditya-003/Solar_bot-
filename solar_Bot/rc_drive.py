@@ -272,19 +272,23 @@ class Odometer:
 
     @property
     def x(self):
-        with self._lock: return self._x
+        with self._lock:
+            return self._x
 
     @property
     def y(self):
-        with self._lock: return self._y
+        with self._lock:
+            return self._y
 
     @property
     def dist(self):
-        with self._lock: return self._dist
+        with self._lock:
+            return self._dist
 
     @property
     def position(self):
-        with self._lock: return (self._x, self._y)
+        with self._lock:
+            return (self._x, self._y)
 
     def update(self, throttle_pct: int, yaw_deg: float, steer_pct: int = 0):
         """Call each time a STATUS is received."""
@@ -709,10 +713,10 @@ def list_missions():
             print(f"  {f.name}  {ts}  — {bc} corners  {wc} waypoints")
         except Exception:
             print(f"  {f.name}  (unreadable)")
-    print(f"\nUsage:")
-    print(f"  python3 rc_drive.py --resume                  # load newest mission")
-    print(f"  python3 rc_drive.py --mission paths/<file>    # load specific file")
-    print(f"  python3 rc_drive.py --resume-boundary         # reload corners only\n")
+    print("\nUsage:")
+    print("  python3 rc_drive.py --resume                  # load newest mission")
+    print("  python3 rc_drive.py --mission paths/<file>    # load specific file")
+    print("  python3 rc_drive.py --resume-boundary         # reload corners only\n")
 
 # ── RC main loop ──────────────────────────────────────────────────────────────
 
@@ -762,7 +766,7 @@ def run(args):
                 print(f"[MISSION] Path ready: {len(waypoints)} waypoints — ARM + flip SC to start")
             elif corners:
                 _state["mission_mode"] = "RECORDING"
-                print(f"[MISSION] Boundary loaded — flip SC when done adding corners")
+                print("[MISSION] Boundary loaded — flip SC when done adding corners")
         except Exception as e:
             print(f"[MISSION] Failed to load '{_load_path}': {e}")
 
@@ -803,17 +807,17 @@ def run(args):
             _ni = web_ui.get_net_info()
             _url = _ni.get("url") or f"http://localhost:{args.web_port}"
             if _ni.get("mode") == "hotspot":
-                print(f"\n  ┌─ HOTSPOT MODE ─────────────────────────────────────┐")
+                print("\n  ┌─ HOTSPOT MODE ─────────────────────────────────────┐")
                 print(f"  │  SSID    : \033[97m{_ni.get('ssid', 'SolarBot')}\033[0m")
                 print(f"  │  Password: \033[97m{_ni.get('password', 'solarbot123')}\033[0m")
                 print(f"  │  Open    : \033[96m{_url}\033[0m")
-                print(f"  └────────────────────────────────────────────────────┘\n")
+                print("  └────────────────────────────────────────────────────┘\n")
             elif _ni.get("mode") == "wifi":
                 ssid = _ni.get('ssid', '')
-                print(f"\n  ┌─ WIFI MODE ─────────────────────────────────────────┐")
+                print("\n  ┌─ WIFI MODE ─────────────────────────────────────────┐")
                 print(f"  │  Router  : \033[97m{ssid}\033[0m")
                 print(f"  │  Open    : \033[96m{_url}\033[0m")
-                print(f"  └────────────────────────────────────────────────────┘\n")
+                print("  └────────────────────────────────────────────────────┘\n")
             else:
                 print(f"    Browse → \033[96m{_url}\033[0m")
         except Exception:
@@ -861,8 +865,12 @@ def run(args):
                 _state["last_rc"] = time.time()
                 _state["frames"] += 1
 
-                ch2 = ch[1]; ch4 = ch[3]; ch5 = ch[4]
-                ch6 = ch[5]; ch7 = ch[6]; ch8 = ch[7]
+                ch2 = ch[1]
+                ch4 = ch[3]
+                ch5 = ch[4]
+                ch6 = ch[5]
+                ch7 = ch[6]
+                ch8 = ch[7]
 
                 _state["armed"] = (ch5 > 1700)
                 mode = _state["mission_mode"]
@@ -987,14 +995,16 @@ def run(args):
 
         if _state.get("web_stop"):
             _state["web_stop"] = False
-            if _mission: _mission.pause()
+            if _mission:
+                _mission.pause()
             _state["mission_mode"] = "PLANNED" if _mission else "IDLE"
             _state["steer"] = _state["throttle"] = 0
             print("[WEB] Emergency stop")
 
         if _state.get("web_pause") and mode == "RUNNING":
             _state["web_pause"] = False
-            if _mission: _mission.pause()
+            if _mission:
+                _mission.pause()
             _state["mission_mode"] = "PLANNED"
             _state["steer"] = _state["throttle"] = 0
             print("[WEB] Mission paused")
@@ -1034,7 +1044,6 @@ def run(args):
             _state["web_plan"] = False
             mode = _state["mission_mode"]
             spacing   = float(_state.get("web_row_spacing", 0.8))
-            angle     = _state.get("web_angle", "auto")
             overshoot = float(_state.get("web_overshoot", 1.0))
             if mode == "RECORDING":
                 cnt = _boundary.count
@@ -1056,7 +1065,8 @@ def run(args):
             elif mode in ("PLANNED", "DONE"):
                 # Second plan press = start mission
                 if _state["armed"] and _mission:
-                    _mission.abort(); _mission.start()
+                    _mission.abort()
+                    _mission.start()
                     _state["mission_mode"] = "RUNNING"
                     _state["wp_index"] = 0
                     print("[WEB] Mission started")
@@ -1067,7 +1077,8 @@ def run(args):
             _state["web_resume"] = False
             mode = _state["mission_mode"]
             if mode in ("PLANNED", "DONE") and _state["armed"] and _mission:
-                _mission.abort(); _mission.start()
+                _mission.abort()
+                _mission.start()
                 _state["mission_mode"] = "RUNNING"
                 _state["wp_index"] = 0
                 print("[WEB] Mission resumed/started")
@@ -1189,7 +1200,7 @@ def _draw(args, lq_hist):
         print(f"  {labels[i]:<14} {us:6d}µs  {c}{st}\033[0m")
 
     # Motor output
-    print(f"\n  MOTORS: ", end="")
+    print("\n  MOTORS: ", end="")
     if failsafe or not armed:
         print("\033[91mSTOP\033[0m")
     else:
@@ -1213,7 +1224,7 @@ def _draw(args, lq_hist):
         print(f"\n  GPS:  \033[92mFIX\033[0m  {fix.lat:.7f}, {fix.lon:.7f}"
               f"  sats:{fix.satellites}  spd:{fix.speed_ms:.1f}m/s")
     else:
-        print(f"\n  GPS:  \033[93mno fix\033[0m  — flip SB to start boundary recording when ready")
+        print("\n  GPS:  \033[93mno fix\033[0m  — flip SB to start boundary recording when ready")
 
     # ── Mission panel ─────────────────────────────────────────────────────────
     print()

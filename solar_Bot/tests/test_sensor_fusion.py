@@ -42,3 +42,13 @@ def test_dead_reckon_advances_after_anchor() -> None:
     assert p.source in ("dead_reckon", "gps")
     # Latitude should have nudged northward (positive Δlat)
     assert p.lat >= 19.07
+
+
+@pytest.mark.unit
+def test_calibrate_yaw_updates_non_gps_heading_immediately() -> None:
+    est = Estimator(NavigationConfig())
+    est.set_anchor(19.07, 72.87)
+    est.calibrate_yaw_to(true_heading_deg=90.0, gyro_yaw_deg=15.0)
+    p = est.pose()
+    assert p.has_position is True
+    assert p.heading_deg == pytest.approx(90.0)

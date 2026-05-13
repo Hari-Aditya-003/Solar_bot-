@@ -20,8 +20,8 @@ from __future__ import annotations
 
 import logging
 import math
-from dataclasses import dataclass, field
-from typing import Sequence
+from collections.abc import Sequence
+from dataclasses import dataclass
 
 from .geo import (
     LatLon,
@@ -34,6 +34,7 @@ from .geo import (
     longest_edge_angle,
     polygon_area_m2,
     rotate,
+    shrink_polygon,
     xy_to_latlon,
 )
 
@@ -78,6 +79,7 @@ class PlanRequest:
     sweep_angle_deg: float | None = None
     return_to_home: bool = True
     robot_speed_ms: float = 0.30
+    edge_buffer_m: float = 0.0
 
 
 # ─── Core planner ─────────────────────────────────────────────────────────────
@@ -93,6 +95,11 @@ def plan_coverage(req: PlanRequest) -> CoveragePlan:
 
     ref = latlon_centroid(req.boundary)
     local: list[Point] = [latlon_to_xy(p, ref) for p in req.boundary]
+    work_poly = (
+        shrink_polygon(local, req.edge_buffer_m)
+        if req.edge_buffer_m > 0.0
+        else list(local)
+    )
 
     sweep_rad = (
         math.radians(req.sweep_angle_deg)
@@ -100,7 +107,7 @@ def plan_coverage(req: PlanRequest) -> CoveragePlan:
         else longest_edge_angle(local)
     )
 
-    rotated = [rotate(p, -sweep_rad) for p in local]
+    rotated = [rotate(p, -sweep_rad) for p in work_poly]
     ys = [p.y for p in rotated]
     y_min, y_max = min(ys), max(ys)
 
@@ -146,6 +153,39 @@ def plan_coverage(req: PlanRequest) -> CoveragePlan:
         area_m2=polygon_area_m2(local),
         sweep_angle_deg=math.degrees(sweep_rad),
         effective_spacing_m=spacing,
+        estimated_time_s=distance / speed,
+    )
+
+
+def plan_boundary_route(
+    boundary: Sequence[LatLon],
+    *,
+    return_to_home: bool = True,
+    robot_speed_ms: float = 0.30,
+) -> CoveragePlan:
+    """Return the boundary itself as a patrol route.
+
+    This is used when the operator records corners physically and wants the
+    robot to replay those boundary segments later instead of generating
+    lawnmower coverage rows.
+    """
+    if len(boundary) < 2:
+        return CoveragePlan()
+
+    ref = latlon_centroid(boundary)
+    local = [latlon_to_xy(p, ref) for p in boundary]
+    waypoints = list(boundary)
+    if return_to_home and len(waypoints) > 2 and waypoints[0] != waypoints[-1]:
+        waypoints.append(waypoints[0])
+    distance = path_distance_m(waypoints)
+    speed = max(robot_speed_ms, 0.01)
+    return CoveragePlan(
+        waypoints=tuple(waypoints),
+        rows=max(1, len(waypoints) - 1),
+        distance_m=distance,
+        area_m2=polygon_area_m2(local),
+        sweep_angle_deg=0.0,
+        effective_spacing_m=0.0,
         estimated_time_s=distance / speed,
     )
 

@@ -17,7 +17,7 @@ import time
 
 from .app import create_app
 from .config import load_config
-from .geo import LatLon, M_PER_DEG_LAT
+from .geo import M_PER_DEG_LAT, LatLon
 from .navigation import NavMode
 
 # Sample plot — a small rectangle in Mumbai (≈ 8 m × 5 m).

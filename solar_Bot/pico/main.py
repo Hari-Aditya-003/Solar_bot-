@@ -62,7 +62,8 @@ import asyncio
 import math
 import sys
 import time
-from machine import Pin, PWM, ADC, UART, I2C
+
+from machine import ADC, I2C, PWM, UART, Pin
 
 # ─── Motor driver pins ────────────────────────────────────────────────────────
 
@@ -202,11 +203,14 @@ def _set_motor(in1, in2, en, speed: int):
     speed = max(-100, min(100, speed))
     duty  = int(abs(speed) / 100 * 65535)
     if speed > 0:
-        in1.value(1); in2.value(0)
+        in1.value(1)
+        in2.value(0)
     elif speed < 0:
-        in1.value(0); in2.value(1)
+        in1.value(0)
+        in2.value(1)
     else:
-        in1.value(0); in2.value(0)
+        in1.value(0)
+        in2.value(0)
     en.duty_u16(duty)
 
 
@@ -240,27 +244,33 @@ def handle_command(line: str):
 
     if cmd == "STOP":
         _steer = _throttle = 0
-        _running = _stopped = True
+        _running = False
         _stopped = True
         stop_motors()
 
     elif cmd == "MOVE" and len(parts) == 3:
         try:
-            s = int(parts[1]); t = int(parts[2])
-            _steer = s; _throttle = t; _stopped = False
+            s = int(parts[1])
+            t = int(parts[2])
+            _steer = s
+            _throttle = t
+            _stopped = False
             tank_drive(s, t)
         except ValueError:
             pass
 
     elif cmd == "MISSION_START":
-        _running = True; _stopped = False
+        _running = True
+        _stopped = False
 
     elif cmd == "MISSION_PAUSE":
-        _running = False; _stopped = True
+        _running = False
+        _stopped = True
         stop_motors()
 
     elif cmd == "MISSION_ABORT":
-        _running = False; _stopped = True
+        _running = False
+        _stopped = True
         _steer = _throttle = 0
         stop_motors()
 

@@ -2,13 +2,23 @@
 # Override any value here; missing values fall back to defaults in config.py.
 
 hardware:
-  gps_port:        /dev/ttyAMA2
+  gps_port:        auto           # auto prefers USB GPS (/dev/ttyUSB*) then GPIO UART2
   gps_baud:        9600
+  radio_port:      /dev/ttyAMA0
+  radio_baud:      460800
   pico_port:       /dev/ttyAMA4
   pico_baud:       115200
   pico_transport:  uart           # uart | udp
   pico_udp_host:   192.168.4.1
   pico_udp_port:   5005
+  radio_steer_channel:    4
+  radio_throttle_channel: 2
+  radio_steer_invert:     false
+  radio_throttle_invert:  false
+  radio_mark_channel:     6
+  radio_plan_channel:     7
+  radio_abort_channel:    8
+  radio_switch_high_us:   1700
 
 robot:
   wheel_diameter_cm:      6.5
@@ -29,6 +39,10 @@ navigation:
   heading_filter_alpha:    0.85
   drift_correct_max_deg:   25.0
   end_of_lane_distance_m:  0.20
+  non_gps_turn_in_place_deg: 18.0
+  non_gps_turn_steer_pct:    65
+  non_gps_transition_speed_pct: 28
+  non_gps_transition_max_m:  1.2
 
 planner:
   row_spacing_m:    0.50

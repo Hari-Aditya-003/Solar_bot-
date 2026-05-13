@@ -8,10 +8,11 @@ Before running: bridge JST Pin 1 (RX) to JST Pin 3 (TX) with a short wire.
 
 Run: python3 test_loopback.py
 """
-import serial
-import time
-import sys
 import os
+import sys
+import time
+
+import serial
 
 PORT  = "/dev/ttyAMA0"
 BAUD  = 115200          # use safe baud for loopback
@@ -30,7 +31,7 @@ def main():
     try:
         ser = serial.Serial(PORT, BAUD, timeout=1)
     except PermissionError:
-        print(f"ERROR: Permission denied. Run:  sudo python3 test_loopback.py")
+        print("ERROR: Permission denied. Run:  sudo python3 test_loopback.py")
         sys.exit(1)
 
     test_bytes = b"\xAA\x55\x01\x02\x03\xDE\xAD\xBE\xEF"

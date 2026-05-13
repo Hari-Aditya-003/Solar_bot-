@@ -12,6 +12,7 @@ Usage:
 import argparse
 import sys
 import time
+
 import serial
 
 PICO_PORT = "/dev/ttyAMA4"

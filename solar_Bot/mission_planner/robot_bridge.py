@@ -11,7 +11,7 @@ Wire protocol (RPi → Pico)
 ::
 
     STOP
-    MOVE <steer -100..100> <throttle 0..100>
+    MOVE <steer -100..100> <throttle -100..100>
     WAYPOINT <lat> <lon>
     MISSION_START | MISSION_PAUSE | MISSION_ABORT
 
@@ -29,8 +29,8 @@ import queue
 import socket
 import threading
 import time
+from collections.abc import Callable
 from dataclasses import dataclass, field
-from typing import Callable, Optional
 
 import serial  # type: ignore
 
@@ -97,7 +97,7 @@ class RobotBridge(threading.Thread):
         baud: int = 115_200,
         udp_host: str = "192.168.4.1",
         udp_port: int = 5005,
-        on_status: Optional[Callable[[RobotStatus], None]] = None,
+        on_status: Callable[[RobotStatus], None] | None = None,
         battery_full_mv: int = 12_600,
         battery_empty_mv: int = 9_000,
     ) -> None:
@@ -127,7 +127,7 @@ class RobotBridge(threading.Thread):
 
     def move(self, steer: int, throttle: int) -> None:
         steer = max(-100, min(100, int(steer)))
-        throttle = max(0, min(100, int(throttle)))
+        throttle = max(-100, min(100, int(throttle)))
         self.send(f"MOVE {steer} {throttle}")
 
     def set_waypoint(self, lat: float, lon: float) -> None:
@@ -174,7 +174,13 @@ class RobotBridge(threading.Thread):
                 with serial.Serial(self.port, self.baud, timeout=0.05) as ser:
                     log.info("UART connected: %s @ %d", self.port, self.baud)
                     with self._lock:
-                        self._status.connected = True
+                        self._status.connected = False
+                    try:
+                        ser.reset_input_buffer()
+                        ser.reset_output_buffer()
+                    except Exception:
+                        pass
+                    ser.write(b"STOP\n")
                     self._uart_loop(ser)
             except serial.SerialException as exc:
                 with self._lock:
@@ -184,6 +190,7 @@ class RobotBridge(threading.Thread):
 
     def _uart_loop(self, ser: serial.Serial) -> None:
         buf = b""
+        last_status_t = time.time()
         while not self._stop_evt.is_set():
             while not self._cmd_q.empty():
                 try:
@@ -195,7 +202,11 @@ class RobotBridge(threading.Thread):
                 buf += chunk
                 while b"\n" in buf:
                     line, buf = buf.split(b"\n", 1)
-                    self._parse_status(line.decode("ascii", errors="replace").strip())
+                    if self._parse_status(line.decode("ascii", errors="replace").strip()):
+                        last_status_t = time.time()
+            if time.time() - last_status_t > 1.0:
+                with self._lock:
+                    self._status.connected = False
         with self._lock:
             self._status.connected = False
 
@@ -220,7 +231,7 @@ class RobotBridge(threading.Thread):
             try:
                 data, _ = sock.recvfrom(256)
                 self._parse_status(data.decode("ascii", errors="replace").strip())
-            except socket.timeout:
+            except TimeoutError:
                 with self._lock:
                     if time.time() - self._status.last_seen > 3.0:
                         self._status.connected = False
@@ -228,12 +239,12 @@ class RobotBridge(threading.Thread):
 
     # ── Status parser ─────────────────────────────────────────────────────
 
-    def _parse_status(self, line: str) -> None:
+    def _parse_status(self, line: str) -> bool:
         if not line.startswith("STATUS"):
-            return
+            return False
         parts = line.split()
         if len(parts) < 7:
-            return
+            return False
         try:
             with self._lock:
                 self._status.lat = float(parts[1])
@@ -250,5 +261,7 @@ class RobotBridge(threading.Thread):
                 self._status.connected = True
             if self.on_status:
                 self.on_status(self.get_status())
+            return True
         except (ValueError, IndexError):
             log.debug("Malformed STATUS: %s", line)
+            return False

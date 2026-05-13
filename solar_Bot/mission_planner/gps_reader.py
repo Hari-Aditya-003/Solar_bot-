@@ -7,10 +7,12 @@ Runs as a daemon thread.  ``get_fix()`` always returns the most recent
 from __future__ import annotations
 
 import logging
+import os
 import threading
 import time
+from collections.abc import Callable
 from dataclasses import dataclass, field
-from typing import Callable, Optional
+from pathlib import Path
 
 import serial  # type: ignore
 
@@ -21,6 +23,15 @@ except ImportError:  # pragma: no cover - optional dep
     _HAS_PYNMEA2 = False
 
 log = logging.getLogger(__name__)
+
+GPS_AUTO_PORT = "auto"
+GPS_CANDIDATE_PORTS = (
+    "/dev/ttyUSB0",
+    "/dev/ttyUSB1",
+    "/dev/ttyACM0",
+    "/dev/ttyACM1",
+    "/dev/ttyAMA2",
+)
 
 
 @dataclass
@@ -66,7 +77,7 @@ class GPSReader(threading.Thread):
         self,
         port: str = "/dev/ttyAMA2",
         baud: int = 9600,
-        on_fix: Optional[Callable[[GPSFix], None]] = None,
+        on_fix: Callable[[GPSFix], None] | None = None,
     ) -> None:
         super().__init__(daemon=True, name="GPSReader")
         self.port = port
@@ -76,6 +87,8 @@ class GPSReader(threading.Thread):
         self._lock = threading.Lock()
         self._stop_evt = threading.Event()
         self.connected = False
+        self.current_port = ""
+        self.last_sentence_t = 0.0
         if not _HAS_PYNMEA2:
             log.warning("pynmea2 not installed; using built-in parser")
 
@@ -96,10 +109,17 @@ class GPSReader(threading.Thread):
 
     def run(self) -> None:
         while not self._stop_evt.is_set():
+            port = resolve_gps_port(self.port)
+            if port is None:
+                self.connected = False
+                log.warning("GPS device not found for port=%s — retrying in 3 s", self.port)
+                time.sleep(3)
+                continue
             try:
-                with serial.Serial(self.port, self.baud, timeout=1.0) as ser:
-                    log.info("GPS connected: %s @ %d", self.port, self.baud)
+                with serial.Serial(port, self.baud, timeout=1.0) as ser:
+                    log.info("GPS connected: %s @ %d", port, self.baud)
                     self.connected = True
+                    self.current_port = port
                     self._read_loop(ser)
             except serial.SerialException as exc:
                 self.connected = False
@@ -124,6 +144,7 @@ class GPSReader(threading.Thread):
                 line_b, buf = buf.split(b"\n", 1)
                 sentence = line_b.decode("ascii", errors="replace").strip()
                 if sentence.startswith("$"):
+                    self.last_sentence_t = time.time()
                     if _HAS_PYNMEA2:
                         self._parse_pynmea2(sentence)
                     else:
@@ -195,3 +216,27 @@ def _nmea_to_deg(value: str, direction: str) -> float:
     if direction in ("S", "W"):
         dec = -dec
     return dec
+
+
+def resolve_gps_port(port: str | None = GPS_AUTO_PORT) -> str | None:
+    """Resolve ``auto`` to the first likely USB/GPIO GPS serial port."""
+    if port and port != GPS_AUTO_PORT:
+        return port if os.path.exists(port) else None
+
+    by_id = Path("/dev/serial/by-id")
+    if by_id.exists():
+        for link in sorted(by_id.iterdir()):
+            try:
+                target = str(link.resolve())
+            except OSError:
+                continue
+            if Path(target).exists() and (
+                target.startswith("/dev/ttyUSB")
+                or target.startswith("/dev/ttyACM")
+            ):
+                return target
+
+    for candidate in GPS_CANDIDATE_PORTS:
+        if os.path.exists(candidate):
+            return candidate
+    return None

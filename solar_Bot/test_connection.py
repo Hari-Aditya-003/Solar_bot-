@@ -23,10 +23,10 @@ Usage:
   python3 test_connection.py --mav /dev/ttyUSB0   # if using USB adapter
 """
 
-import time
-import sys
-import os
 import argparse
+import os
+import sys
+import time
 
 MAV_PORT = "/dev/ttyAMA0"    # GPIO Pin 10 (RX) ← RP3 V2 TX
 MAV_BAUD = 460_800           # ELRS MAVLink output baud rate
@@ -59,10 +59,10 @@ def test_port(port, baud):
         import serial
         s = serial.Serial(port, baud, timeout=0.1)
         s.close()
-        ok(f"Port opens OK")
+        ok("Port opens OK")
         return True
     except PermissionError:
-        err(f"Permission denied — run:  sudo bash fix_uart_permissions.sh")
+        err("Permission denied — run:  sudo bash fix_uart_permissions.sh")
         return False
     except Exception as e:
         err(str(e))
@@ -83,7 +83,7 @@ def test_mavlink(port, baud):
         err(f"Cannot open: {e}")
         return None, {}
 
-    ok(f"Connection object created — reading messages (5 s) ...")
+    ok("Connection object created — reading messages (5 s) ...")
 
     rc_msgs = []
     radio_msgs = []
@@ -146,7 +146,7 @@ def print_channel_snapshot(results):
     print("\n" + "=" * 58)
     print("  CHANNEL SNAPSHOT (last RC frame)")
     print("=" * 58)
-    for i, (us, lbl) in enumerate(zip(ch, labels)):
+    for i, (us, lbl) in enumerate(zip(ch, labels, strict=True)):
         b = bar(us)
         print(f"  CH{i+1:02d}  {lbl}  {b}  {us:4d} µs")
 

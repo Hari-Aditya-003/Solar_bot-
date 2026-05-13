@@ -32,11 +32,11 @@ Usage:
   python3 mavlink_bridge.py --forward udp:127.0.0.1:14550  # forward to SITL
 """
 
-import time
-import sys
+import argparse
 import os
 import signal
-import argparse
+import sys
+import time
 from collections import deque
 
 # ─── Configuration ────────────────────────────────────────────────────────────
@@ -187,7 +187,7 @@ def run_forward(mav_rx, fc_str: str):
     sys_id  = mav_fc.target_system
     comp_id = mav_fc.target_component
     print(f"  FC heartbeat OK — sysid={sys_id}  compid={comp_id}")
-    print(f"\nForwarding RC at 50 Hz  (Ctrl+C to stop)\n")
+    print("\nForwarding RC at 50 Hz  (Ctrl+C to stop)\n")
 
     stop = [False]
     def _sig(s, f): stop[0] = True
@@ -239,7 +239,7 @@ def run_forward(mav_rx, fc_str: str):
                   f"Thr: {ch[2]:4d}µs  Sent: {tx_count} msgs   ",
                   end="", flush=True)
 
-    print(f"\n\nShutting down — sending failsafe ...")
+    print("\n\nShutting down — sending failsafe ...")
     mav_fc.mav.rc_channels_override_send(
         sys_id, comp_id,
         1500, 1500, FAILSAFE_THROTTLE, 1500, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0)
@@ -286,7 +286,7 @@ def main():
             args.rx_port, baud=args.rx_baud, source_system=255)
         print(f"  OK  Connected to {args.rx_port}")
     except PermissionError:
-        print(f"  ERROR: Permission denied — run:  sudo bash fix_uart_permissions.sh")
+        print("  ERROR: Permission denied — run:  sudo bash fix_uart_permissions.sh")
         sys.exit(1)
     except Exception as e:
         print(f"  ERROR: {e}")

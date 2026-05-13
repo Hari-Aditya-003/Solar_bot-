@@ -25,11 +25,19 @@ import logging
 import math
 import threading
 import time
+from collections.abc import Callable
 from dataclasses import dataclass, field
-from typing import Callable, Optional
 
 from .config import Config
-from .geo import LatLon, bearing_deg, haversine_m, heading_error_deg
+from .geo import (
+    LatLon,
+    Point,
+    bearing_deg,
+    haversine_m,
+    heading_error_deg,
+    latlon_to_xy,
+    xy_to_latlon,
+)
 from .robot_bridge import RobotBridge, RobotStatus
 from .safety import SafetyMonitor, SafetyVerdict
 from .sensor_fusion import Estimator, Pose
@@ -58,6 +66,7 @@ class Mission:
     name: str = ""
     boundary: list[LatLon] = field(default_factory=list)
     waypoints: list[LatLon] = field(default_factory=list)
+    path_mode: str = "coverage"
     state: MissionState = MissionState.IDLE
     current_wp: int = 0
     started_at: float = 0.0
@@ -76,6 +85,7 @@ class Mission:
                 {"seq": i, "lat": w.lat, "lon": w.lon}
                 for i, w in enumerate(self.waypoints)
             ],
+            "path_mode": self.path_mode,
             "state": self.state.value,
             "current_wp": self.current_wp,
             "wp_total": len(self.waypoints),
@@ -103,7 +113,7 @@ class Navigator:
     def __init__(
         self,
         cfg: Config,
-        robot: Optional[RobotBridge],
+        robot: RobotBridge | None,
         estimator: Estimator,
         safety: SafetyMonitor,
         on_event: Callable[[str, dict], None] | None = None,
@@ -140,18 +150,33 @@ class Navigator:
 
     # ── Mission API ───────────────────────────────────────────────────────
 
-    def set_mission(self, name: str, boundary: list[LatLon],
-                    waypoints: list[LatLon]) -> None:
+    def set_mission(
+        self,
+        name: str,
+        boundary: list[LatLon],
+        waypoints: list[LatLon],
+        *,
+        path_mode: str = "coverage",
+        geofence_buffer_m: float | None = None,
+    ) -> None:
         with self._lock:
             self.mission = Mission(
                 name=name,
                 boundary=list(boundary),
                 waypoints=list(waypoints),
+                path_mode="boundary" if path_mode == "boundary" else "coverage",
                 state=MissionState.IDLE,
                 current_wp=0,
             )
-        self.safety.set_geofence(boundary)
+        self.safety.set_geofence(boundary, buffer_m=geofence_buffer_m)
         log.info("Mission loaded: %s (%d waypoints)", name, len(waypoints))
+
+    def clear_mission(self) -> None:
+        with self._lock:
+            self.mission = Mission()
+            self._lane_start = None
+        self.safety.set_geofence([])
+        log.info("Mission cleared")
 
     def set_mode(self, mode: NavMode) -> None:
         with self._lock:
@@ -163,15 +188,44 @@ class Navigator:
             self._target_speed_pct = max(0, min(100, int(pct)))
 
     def start_mission(self) -> bool:
+        anchor_wp: LatLon | None = None
+        aligned_bearing: float | None = None
+        gyro_heading: float | None = None
         with self._lock:
             if not self.mission.waypoints:
                 return False
+            start_pose = self.estimator.pose()
+            if self.mode is NavMode.NON_GPS and not start_pose.has_position:
+                anchor_wp = self.mission.waypoints[0]
+                self.estimator.set_anchor(anchor_wp.lat, anchor_wp.lon)
+                start_pose = self.estimator.pose()
+            if self.mode is NavMode.NON_GPS and len(self.mission.waypoints) >= 2:
+                aligned_bearing = bearing_deg(
+                    self.mission.waypoints[0],
+                    self.mission.waypoints[1],
+                )
+                gyro_heading = (
+                    self.robot.get_status().heading
+                    if self.robot is not None
+                    else start_pose.heading_deg
+                )
+                self.estimator.calibrate_yaw_to(aligned_bearing, gyro_heading)
+                start_pose = self.estimator.pose()
             self.mission.state = MissionState.RUNNING
             self.mission.current_wp = 0
             self.mission.started_at = time.time()
             self.mission.distance_done_m = 0.0
             self._reset_pid()
-            self._lane_start = self.estimator.pose()
+            self._lane_start = start_pose
+        if anchor_wp is not None:
+            log.info("Seeded non-GPS anchor from first waypoint: %.7f, %.7f",
+                     anchor_wp.lat, anchor_wp.lon)
+        if aligned_bearing is not None and gyro_heading is not None:
+            log.info(
+                "Aligned non-GPS heading frame: lane %.1f°, gyro %.1f°",
+                aligned_bearing,
+                gyro_heading,
+            )
         if self.robot:
             self.robot.mission_start()
         self._emit("mission_started")
@@ -231,6 +285,7 @@ class Navigator:
             wps = list(self.mission.waypoints)
             idx = self.mission.current_wp
             mode = self.mode
+            path_mode = self.mission.path_mode
 
         if state != MissionState.RUNNING or not wps or idx >= len(wps):
             return
@@ -254,19 +309,33 @@ class Navigator:
 
         # Branch on mode.
         if mode is NavMode.GPS:
-            self._tick_gps(wps, idx, pose)
+            self._tick_gps(wps, idx, pose, path_mode)
         else:
-            self._tick_non_gps(wps, idx, pose, robot_status)
+            self._tick_non_gps(wps, idx, pose, robot_status, path_mode)
 
     # ── GPS waypoint follower (PID) ───────────────────────────────────────
 
-    def _tick_gps(self, wps: list[LatLon], idx: int, pose: Pose) -> None:
+    def _tick_gps(
+        self,
+        wps: list[LatLon],
+        idx: int,
+        pose: Pose,
+        path_mode: str,
+    ) -> None:
         if not pose.has_position:
             self._send_move(0, 0)
             return
 
         target = wps[idx]
         here = pose.as_latlon()
+        recovery = False
+        route_dist = 0.0
+        if path_mode == "boundary" and len(wps) >= 2:
+            route_dist, route_target, route_idx = self._nearest_route_point_m(wps, here)
+            if route_dist > self.cfg.navigation.accept_radius_m:
+                target = route_target
+                recovery = True
+                idx = min(route_idx, len(wps) - 1)
         dist = haversine_m(here, target)
 
         if dist < self.cfg.navigation.accept_radius_m:
@@ -292,12 +361,14 @@ class Navigator:
             "steer": steer,
             "throttle": throttle,
             "source": pose.source,
+            "control_mode": "route_recovery" if recovery else "track_segment",
+            "route_dist_m": round(route_dist, 2),
         })
 
     # ── Non-GPS lane follower ─────────────────────────────────────────────
 
     def _tick_non_gps(self, wps: list[LatLon], idx: int, pose: Pose,
-                      robot_status: RobotStatus) -> None:
+                      robot_status: RobotStatus, path_mode: str = "coverage") -> None:
         """Use IMU heading + encoder distance to walk the lawnmower path.
 
         We trust the *generated* lane geometry (its bearing and length) and
@@ -312,28 +383,76 @@ class Navigator:
         a, b = wps[idx], wps[idx + 1]
         lane_bearing = bearing_deg(a, b)
         lane_length = haversine_m(a, b)
+        recovery_target: LatLon | None = None
+        route_dist = 0.0
 
         # Distance covered along this lane (use estimator if it has a fix,
         # otherwise integrate speed since lane started).
         if pose.has_position:
-            covered = haversine_m(a, pose.as_latlon())
+            covered, cross_track = self._segment_progress_m(a, b, pose.as_latlon())
+            covered = max(0.0, covered)
+            if path_mode == "boundary":
+                route_dist, route_target, route_idx = self._nearest_route_point_m(
+                    wps,
+                    pose.as_latlon(),
+                )
+                if route_dist > self.cfg.navigation.accept_radius_m:
+                    recovery_target = route_target
+                    lane_bearing = bearing_deg(pose.as_latlon(), route_target)
+                    lane_length = route_dist
+                    covered = 0.0
+                    cross_track = route_dist
+                    idx = min(route_idx, len(wps) - 2)
         else:
             elapsed = time.time() - (self.mission.started_at or time.time())
             covered = pose.speed_ms * elapsed
+            cross_track = 0.0
 
         remaining = lane_length - covered
-        if remaining <= self.cfg.navigation.end_of_lane_distance_m:
+        if recovery_target is None and remaining <= self.cfg.navigation.end_of_lane_distance_m:
             log.debug("Lane %d→%d complete (%.2f m)", idx, idx + 1, lane_length)
             self._on_waypoint_reached(idx, len(wps))
             return
 
-        err = heading_error_deg(lane_bearing, pose.heading_deg)
+        raw_err = heading_error_deg(lane_bearing, pose.heading_deg)
+        if abs(raw_err) > self.cfg.navigation.non_gps_turn_in_place_deg:
+            steer = (
+                self.cfg.navigation.non_gps_turn_steer_pct
+                if raw_err > 0
+                else -self.cfg.navigation.non_gps_turn_steer_pct
+            )
+            self._send_move(steer, 0)
+            self._emit("nav_telemetry", {
+                "wp": idx,
+                "total": len(wps),
+                "dist_m": round(remaining, 2),
+                "bearing": round(lane_bearing, 1),
+                "heading": round(pose.heading_deg, 1),
+                "heading_err": round(raw_err, 1),
+                "steer": steer,
+                "throttle": 0,
+                "source": pose.source,
+                "lane_length_m": round(lane_length, 2),
+                "lane_covered_m": round(covered, 2),
+                "cross_track_m": round(cross_track, 2),
+                "control_mode": "route_recovery_turn" if recovery_target else "turn_in_place",
+                "route_dist_m": round(route_dist, 2),
+            })
+            return
+
+        err = raw_err
         # Cap correction so we don't wildly steer when heading is briefly off.
         err = max(-self.cfg.navigation.drift_correct_max_deg,
                   min(self.cfg.navigation.drift_correct_max_deg, err))
         steer = self._pid_step(err)
-        turn_factor = max(0.5, 1.0 - abs(steer) / 200.0)
-        throttle = int(self._target_speed_pct * turn_factor)
+        segment_speed_pct = self._target_speed_pct
+        if lane_length <= self.cfg.navigation.non_gps_transition_max_m:
+            segment_speed_pct = min(
+                segment_speed_pct,
+                self.cfg.navigation.non_gps_transition_speed_pct,
+            )
+        turn_factor = max(0.4, 1.0 - abs(steer) / 180.0)
+        throttle = int(segment_speed_pct * turn_factor)
 
         self._send_move(steer, throttle)
         self._emit("nav_telemetry", {
@@ -348,6 +467,9 @@ class Navigator:
             "source": pose.source,
             "lane_length_m": round(lane_length, 2),
             "lane_covered_m": round(covered, 2),
+            "cross_track_m": round(cross_track, 2),
+            "control_mode": "route_recovery" if recovery_target else "track_segment",
+            "route_dist_m": round(route_dist, 2),
         })
 
     # ── Shared helpers ────────────────────────────────────────────────────
@@ -382,6 +504,54 @@ class Navigator:
 
     def _reset_pid(self) -> None:
         self._pid = _PIDState(last_t=time.time())
+
+    def _segment_progress_m(
+        self,
+        a: LatLon,
+        b: LatLon,
+        here: LatLon,
+    ) -> tuple[float, float]:
+        seg = latlon_to_xy(b, a)
+        pos = latlon_to_xy(here, a)
+        seg_len = math.hypot(seg.x, seg.y)
+        if seg_len <= 1e-6:
+            return 0.0, 0.0
+        along = (pos.x * seg.x + pos.y * seg.y) / seg_len
+        cross = (pos.x * seg.y - pos.y * seg.x) / seg_len
+        return along, cross
+
+    def _nearest_route_point_m(
+        self,
+        route: list[LatLon],
+        here: LatLon,
+    ) -> tuple[float, LatLon, int]:
+        best_dist = float("inf")
+        best_point = route[0]
+        best_idx = 0
+        for i in range(len(route) - 1):
+            dist, point = self._nearest_point_on_segment_m(route[i], route[i + 1], here)
+            if dist < best_dist:
+                best_dist = dist
+                best_point = point
+                best_idx = i
+        return best_dist, best_point, best_idx
+
+    def _nearest_point_on_segment_m(
+        self,
+        a: LatLon,
+        b: LatLon,
+        here: LatLon,
+    ) -> tuple[float, LatLon]:
+        seg = latlon_to_xy(b, a)
+        pos = latlon_to_xy(here, a)
+        seg_len2 = seg.x * seg.x + seg.y * seg.y
+        if seg_len2 <= 1e-9:
+            return haversine_m(here, a), a
+        t = (pos.x * seg.x + pos.y * seg.y) / seg_len2
+        t = max(0.0, min(1.0, t))
+        projected = Point(seg.x * t, seg.y * t)
+        target = xy_to_latlon(projected, a)
+        return haversine_m(here, target), target
 
     def _pid_step(self, err: float) -> int:
         nav = self.cfg.navigation

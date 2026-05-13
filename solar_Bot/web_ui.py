@@ -9,7 +9,6 @@ Start from rc_drive.py:
 
 import json
 import math
-import os
 import threading
 import time
 
@@ -1621,7 +1620,7 @@ async function cmd(action){
 
 def _run_flask(host, port):
     try:
-        from flask import Flask, Response, request, jsonify
+        from flask import Flask, Response, request
     except ImportError:
         print("[WEB] Flask not found — run:  pip3 install flask")
         return
@@ -1708,9 +1707,10 @@ def _run_flask(host, port):
 
     @app.route("/api/save_field", methods=["POST"])
     def api_save_field():
-        from flask import jsonify as fj
-        from pathlib import Path
         from datetime import datetime
+        from pathlib import Path
+
+        from flask import jsonify as fj
         data = request.get_json(silent=True) or {}
         boundary  = data.get("boundary",  [])
         waypoints = data.get("waypoints", [])
@@ -1780,9 +1780,10 @@ def _run_flask(host, port):
 
     @app.route("/api/missions", methods=["GET"])
     def api_missions():
-        from flask import jsonify as fj
-        from pathlib import Path as _P
         import json as _json
+        from pathlib import Path as _P
+
+        from flask import jsonify as fj
         path_dir = _P("paths")
         files = sorted(path_dir.glob("mission_*.json"), reverse=True)
         result = []
@@ -1801,9 +1802,9 @@ def _run_flask(host, port):
 
     @app.route("/api/load_mission", methods=["POST"])
     def api_load_mission():
-        from flask import jsonify as fj
         from pathlib import Path as _P
-        import json as _json
+
+        from flask import jsonify as fj
         data = request.get_json(silent=True) or {}
         name = data.get("name", "")
         if not name:

@@ -26,6 +26,17 @@ dev = [
   "ruff>=0.4",
 ]
 
+[tool.setuptools.packages.find]
+include = ["mission_planner*"]
+
+[tool.setuptools.package-data]
+mission_planner = [
+  "config.yaml",
+  "static/css/*.css",
+  "static/js/*.js",
+  "templates/*.html",
+]
+
 [tool.pytest.ini_options]
 markers = [
   "unit: fast, isolated unit tests",
