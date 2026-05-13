@@ -4,9 +4,9 @@ Motor Driver Test — Solar Bot
 Tests L298N + Pico 2W via UART.
 
 Usage:
-    python3 test_motors.py
-    python3 test_motors.py --port /dev/ttyAMA4
-    python3 test_motors.py --speed 40
+    python3 tools/check_motors.py
+    python3 tools/check_motors.py --port /dev/ttyAMA4
+    python3 tools/check_motors.py --speed 40
 """
 
 import argparse

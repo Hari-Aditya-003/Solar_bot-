@@ -1,6 +1,6 @@
 #!/bin/bash
 # Fix UART permissions for RPi 5 — run once with sudo
-# Usage: sudo bash fix_uart_permissions.sh
+# Usage: sudo bash tools/fix_uart_permissions.sh
 
 echo "=== Fixing UART permissions for RP3 V2 ==="
 

@@ -27,9 +27,9 @@ Requirements:
   pip install pymavlink pyserial
 
 Usage:
-  python3 mavlink_bridge.py                       # live display only
-  python3 mavlink_bridge.py --forward /dev/ttyUSB0   # forward to FC on USB
-  python3 mavlink_bridge.py --forward udp:127.0.0.1:14550  # forward to SITL
+  python3 tools/mavlink_bridge.py                       # live display only
+  python3 tools/mavlink_bridge.py --forward /dev/ttyUSB0   # forward to FC on USB
+  python3 tools/mavlink_bridge.py --forward udp:127.0.0.1:14550  # forward to SITL
 """
 
 import argparse
@@ -277,7 +277,7 @@ def main():
 
     if not os.path.exists(args.rx_port):
         print(f"  ERROR: {args.rx_port} not found")
-        print("  Check: sudo bash fix_uart_permissions.sh")
+        print("  Check: sudo bash tools/fix_uart_permissions.sh")
         sys.exit(1)
 
     try:
@@ -286,7 +286,7 @@ def main():
             args.rx_port, baud=args.rx_baud, source_system=255)
         print(f"  OK  Connected to {args.rx_port}")
     except PermissionError:
-        print("  ERROR: Permission denied — run:  sudo bash fix_uart_permissions.sh")
+        print("  ERROR: Permission denied — run:  sudo bash tools/fix_uart_permissions.sh")
         sys.exit(1)
     except Exception as e:
         print(f"  ERROR: {e}")

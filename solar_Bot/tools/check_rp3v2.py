@@ -10,7 +10,7 @@ Wiring — RPi 5 JST SH connector (3-pin, board bottom edge):
   5V power:  GPIO header Pin 2 or Pin 4 -->  RP3 V2 5V
 
 RPi 5 GPIO header (Pin 10 RX) = /dev/ttyAMA0
-If permission denied, run once:  sudo bash fix_uart_permissions.sh
+If permission denied, run once:  sudo bash tools/fix_uart_permissions.sh
 
 Protocol auto-detected: CRSF (420000 baud) or MAVLink (115200 baud)
 """
@@ -215,7 +215,7 @@ def test_connectivity():
         print("  Fix (run once, then try again):")
         print(f"    sudo chown root:dialout {SERIAL_PORT}")
         print(f"    sudo chmod 660 {SERIAL_PORT}")
-        print("  Or run with: sudo python3 test_rp3v2.py")
+        print("  Or run with: sudo python3 tools/check_rp3v2.py")
         sys.exit(1)
     except serial.SerialException as e:
         print(f"  ERROR: {e}")
@@ -248,7 +248,7 @@ def test_raw_bytes(ser):
         print()
         print("  Loopback test (to verify UART hardware):")
         print("    Short JST Pin 1 to JST Pin 3 with a wire,")
-        print("    then run:  python3 test_loopback.py")
+        print("    then run:  python3 tools/check_uart_loopback.py")
         return False
     print(f"  OK  Received {total} bytes in 2 s  (~{total//2} bytes/s)")
     return True

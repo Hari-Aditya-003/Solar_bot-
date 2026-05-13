@@ -19,8 +19,8 @@ Tests:
   5. Live channel snapshot
 
 Usage:
-  python3 test_connection.py
-  python3 test_connection.py --mav /dev/ttyUSB0   # if using USB adapter
+  python3 tools/check_receiver_connection.py
+  python3 tools/check_receiver_connection.py --mav /dev/ttyUSB0   # if using USB adapter
 """
 
 import argparse
@@ -62,7 +62,7 @@ def test_port(port, baud):
         ok("Port opens OK")
         return True
     except PermissionError:
-        err("Permission denied — run:  sudo bash fix_uart_permissions.sh")
+        err("Permission denied — run:  sudo bash tools/fix_uart_permissions.sh")
         return False
     except Exception as e:
         err(str(e))
@@ -162,7 +162,7 @@ def print_result(results_dict):
     if all_ok:
         print("  RESULT: ALL TESTS PASSED")
         print("  RP3 V2 → MAVLink link is working correctly.")
-        print("  Next: run   python3 mavlink_bridge.py  for live car control")
+        print("  Next: run   python3 tools/mavlink_bridge.py  for live car control")
     else:
         print("  RESULT: SOME TESTS FAILED — see details above")
     print("=" * 58)

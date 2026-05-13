@@ -28,10 +28,10 @@ Boundary workflow:
 Path files: paths/mission_YYYYMMDD_HHMMSS.json
 
 Usage:
-  python3 rc_drive.py                         # full system
-  python3 rc_drive.py --no-gps               # skip GPS, use dead-reckoning odometry
-  python3 rc_drive.py --spacing 0.4          # 40 cm sweep line spacing
-  python3 rc_drive.py --pico /dev/ttyAMA4
+  python3 tools/rc_drive.py                         # full system
+  python3 tools/rc_drive.py --no-gps               # skip GPS, use dead-reckoning odometry
+  python3 tools/rc_drive.py --spacing 0.4          # 40 cm sweep line spacing
+  python3 tools/rc_drive.py --pico /dev/ttyAMA4
 """
 
 import argparse
@@ -45,6 +45,8 @@ from collections import deque
 from datetime import datetime
 from pathlib import Path
 
+from _paths import PATH_DIR, PROJECT_ROOT
+
 # ── Constants ─────────────────────────────────────────────────────────────────
 
 RC_PORT   = "/dev/ttyAMA0"
@@ -57,7 +59,6 @@ GPS_BAUD  = 9_600
 DEADZONE         = 60
 FAILSAFE_S       = 0.5
 SEND_HZ          = 20
-PATH_DIR         = Path(__file__).parent / "paths"
 
 # ── Robot physical specs — 200RPM TT motor, 65mm wheel, 12×12cm chassis ──────
 WHEEL_DIAM_M     = 0.065   # 65 mm plastic TT wheel
@@ -69,8 +70,6 @@ ARRIVAL_RADIUS_M = 0.30   # arrive within 30 cm of waypoint (was 0.5)
 NAV_THROTTLE     = 30     # 30% → ~0.20 m/s — controllable on panels (was 40)
 NAV_STEER_GAIN   = 0.8    # heading error (deg) → steer % — snappier (was 0.6)
 MIN_GPS_SPEED_MS = 0.15   # use GPS course above this speed (was 0.2)
-
-sys.path.insert(0, str(Path(__file__).parent / "mission_planner"))
 
 # ── Helpers ───────────────────────────────────────────────────────────────────
 
@@ -93,6 +92,11 @@ def bar(us, width=22, lo=1000, hi=2000):
 
 def clr():
     print("\033[H\033[J", end="", flush=True)
+
+def project_path(path):
+    """Resolve relative tool paths from the project root."""
+    p = Path(path).expanduser()
+    return p if p.is_absolute() else PROJECT_ROOT / p
 
 # ── Geometry helpers ──────────────────────────────────────────────────────────
 
@@ -532,7 +536,7 @@ def _start_gps(port, baud):
     if _gps_reader:
         return
     try:
-        from gps_reader import GPSReader
+        from mission_planner.gps_reader import GPSReader
         _gps_reader = GPSReader(port=port, baud=baud)
         _gps_reader.start()
         _state["gps_on"] = True
@@ -676,7 +680,7 @@ def _load_mission_file(path):
     odo_mode=True means coordinates are local (x, y) metres, not (lat, lon).
     waypoints may be [] if only a boundary was saved.
     """
-    data = json.loads(Path(path).read_text())
+    data = json.loads(project_path(path).read_text())
     odo  = (data.get("mode") == "odometry")
     def _pt(p):
         return (p["x"], p["y"]) if odo else (p["lat"], p["lon"])
@@ -714,9 +718,9 @@ def list_missions():
         except Exception:
             print(f"  {f.name}  (unreadable)")
     print("\nUsage:")
-    print("  python3 rc_drive.py --resume                  # load newest mission")
-    print("  python3 rc_drive.py --mission paths/<file>    # load specific file")
-    print("  python3 rc_drive.py --resume-boundary         # reload corners only\n")
+    print("  python3 tools/rc_drive.py --resume                  # load newest mission")
+    print("  python3 tools/rc_drive.py --mission paths/<file>    # load specific file")
+    print("  python3 tools/rc_drive.py --resume-boundary         # reload corners only\n")
 
 # ── RC main loop ──────────────────────────────────────────────────────────────
 

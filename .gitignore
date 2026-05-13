@@ -5,3 +5,8 @@ __pycache__/
 .ruff_cache/
 Screenshot*.png
 solar_Bot/Screenshot*.png
+solar_Bot/docs/images/screenshots/
+*.tmp.*
+*.log
+.coverage
+htmlcov/

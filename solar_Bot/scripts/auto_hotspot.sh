@@ -4,7 +4,7 @@
 # Called by systemd at boot.
 #   1. Waits up to WIFI_WAIT seconds for NetworkManager to join a known network.
 #   2. If no WiFi found, activates the "SolarBot-AP" hotspot profile.
-#   3. Writes /tmp/solarbot_net.json for rc_drive.py and web_ui.py to read.
+#   3. Writes /tmp/solarbot_net.json for tools/rc_drive.py and tools/web_ui.py.
 # ─────────────────────────────────────────────────────────────────────────────
 
 HOTSPOT_CON="SolarBot-AP"

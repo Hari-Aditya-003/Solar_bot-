@@ -51,7 +51,7 @@ Useful checks:
 ```bash
 lsusb
 ls -l /dev/ttyACM0 /dev/serial/by-id/*
-../.venv/bin/python test_gps.py --port /dev/ttyACM0 --seconds 10
+../.venv/bin/python tools/check_gps.py --port /dev/ttyACM0 --seconds 10
 ```
 
 Expected result:
@@ -88,7 +88,7 @@ Wiring:
 Test:
 
 ```bash
-../.venv/bin/python test_rp3v2.py
+../.venv/bin/python tools/check_rp3v2.py
 ```
 
 Mission planner mapping:
@@ -146,7 +146,7 @@ Then reboot.
 Test Pico link:
 
 ```bash
-../.venv/bin/python test_connection.py --port /dev/ttyAMA4
+../.venv/bin/python tools/check_pico_uart.py --port /dev/ttyAMA4
 ```
 
 The app expects Pico telemetry lines like:
@@ -232,7 +232,7 @@ Important:
 Motor test:
 
 ```bash
-../.venv/bin/python test_motors.py --port /dev/ttyAMA4 --speed 30
+../.venv/bin/python tools/check_motors.py --port /dev/ttyAMA4 --speed 30
 ```
 
 ## 7. Battery Voltage Divider To Pico
@@ -315,7 +315,7 @@ Fix UART permissions:
 
 ```bash
 cd /home/solar_bot/Desktop/Solar_bot-/solar_Bot
-sudo bash fix_uart_permissions.sh
+sudo bash tools/fix_uart_permissions.sh
 sudo usermod -aG dialout solar_bot
 ```
 
@@ -345,25 +345,25 @@ If the service is running, do not also run `python -m mission_planner.app` manua
 GPS:
 
 ```bash
-../.venv/bin/python test_gps.py --port /dev/ttyACM0 --seconds 10
+../.venv/bin/python tools/check_gps.py --port /dev/ttyACM0 --seconds 10
 ```
 
 Pico:
 
 ```bash
-../.venv/bin/python test_connection.py --port /dev/ttyAMA4
+../.venv/bin/python tools/check_pico_uart.py --port /dev/ttyAMA4
 ```
 
 Motors:
 
 ```bash
-../.venv/bin/python test_motors.py --port /dev/ttyAMA4 --speed 30
+../.venv/bin/python tools/check_motors.py --port /dev/ttyAMA4 --speed 30
 ```
 
 Radio:
 
 ```bash
-../.venv/bin/python test_rp3v2.py
+../.venv/bin/python tools/check_rp3v2.py
 ```
 
 Web app health:

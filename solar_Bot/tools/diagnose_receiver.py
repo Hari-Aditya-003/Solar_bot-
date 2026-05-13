@@ -3,7 +3,7 @@
 Receiver Protocol Diagnostic
 Dumps raw bytes and scans baud rates to identify what the RP3 V2 is outputting.
 
-Usage:  python3 diagnose_receiver.py
+Usage:  python3 tools/diagnose_receiver.py
 """
 import os
 import sys
@@ -123,7 +123,7 @@ def main():
     print("=" * 60)
 
     if not os.path.exists(PORT):
-        print(f"\nERROR: {PORT} not found. Run fix_uart_permissions.sh first.")
+        print(f"\nERROR: {PORT} not found. Run tools/fix_uart_permissions.sh first.")
         sys.exit(1)
 
     print("\n[1] Baud rate scan (1.5 s per rate):")
@@ -190,7 +190,7 @@ def main():
             print("  Possible causes:")
             print("    [ ] Receiver is in SBUS output mode — check jumper/config")
             print("    [ ] Receiver not bound — LED should blink green when bound")
-            print("    [ ] Wrong serial port — run: python3 test_uart_scan.py")
+            print("    [ ] Wrong serial port — run: python3 tools/scan_uarts.py")
 
 
 if __name__ == "__main__":

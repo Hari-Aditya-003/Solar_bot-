@@ -6,7 +6,7 @@ Verifies that /dev/ttyAMA0 TX and RX are working.
 Before running: bridge JST Pin 1 (RX) to JST Pin 3 (TX) with a short wire.
   JST Pin 1 <--wire--> JST Pin 3
 
-Run: python3 test_loopback.py
+Run: python3 tools/check_uart_loopback.py
 """
 import os
 import sys
@@ -31,7 +31,7 @@ def main():
     try:
         ser = serial.Serial(PORT, BAUD, timeout=1)
     except PermissionError:
-        print("ERROR: Permission denied. Run:  sudo python3 test_loopback.py")
+        print("ERROR: Permission denied. Run:  sudo python3 tools/check_uart_loopback.py")
         sys.exit(1)
 
     test_bytes = b"\xAA\x55\x01\x02\x03\xDE\xAD\xBE\xEF"

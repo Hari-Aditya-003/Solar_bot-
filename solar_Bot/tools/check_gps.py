@@ -8,6 +8,7 @@ import time
 
 import serial
 
+import _paths  # noqa: F401
 from mission_planner.gps_reader import _HAS_PYNMEA2, GPSReader, resolve_gps_port
 
 

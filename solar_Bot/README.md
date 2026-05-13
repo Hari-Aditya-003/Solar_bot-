@@ -8,6 +8,16 @@ codebase.
 ## Architecture
 
 ```
+solar_Bot/
+  mission_planner/       Flask app, planner, navigation, safety, GPS, robot bridges
+  tools/                 field diagnostics and older standalone control tools
+  pico/                  MicroPython firmware for Pico 2 W
+  docs/                  wiring guide, reference PDFs, screenshots, planning images
+  scripts/               Pi setup/autostart helper scripts
+  systemd/               systemd unit files
+  tests/                 pytest suite
+  paths/                 saved field boundaries and mission JSON files
+
 mission_planner/
   config.py          frozen-dataclass settings (config.yaml loader)
   geo.py             projection / haversine / polygon utilities
@@ -25,8 +35,7 @@ mission_planner/
   static/js/app.js       Leaflet map, sliders, telemetry
 
 pico/main.py         MicroPython firmware (L298N + MPU-6050)
-tests/               pytest suite
-config.yaml          all tunables live here
+mission_planner/config.yaml   all app tunables live here
 ```
 
 ## Quick start
@@ -46,7 +55,7 @@ python3 -m mission_planner.app
 
 ## What was fixed in v2
 
-* **UI was broken** (`templates/index.docx` instead of an HTML template) →
+* **UI was broken** (`docs/archive/index-template.docx` was not an HTML template) →
   full QGC-style map UI with draw, sliders, telemetry HUD, mode toggle.
 * **No non-GPS mode** → `sensor_fusion.py` (complementary filter +
   dead-reckoning) and `navigation._tick_non_gps` lane follower.
@@ -68,7 +77,19 @@ python3 -m mission_planner.app
 * Pico ↔ Pi UART on `/dev/ttyAMA4 @ 115200`.
 * Pi 12 V LiPo with 100 k / 33 k divider on Pico GP26 ADC.
 
-See `WIRING.md.docx` (preserved from v1) for full pinouts.
+See `docs/WIRING.md` for the current pinout guide. Legacy/reference files live
+under `docs/`.
+
+## Useful tools
+
+```bash
+python3 tools/check_gps.py --port auto --seconds 10
+python3 tools/check_pico_uart.py --port /dev/ttyAMA4
+python3 tools/check_motors.py --port /dev/ttyAMA4 --speed 30
+python3 tools/check_rp3v2.py
+python3 tools/mavlink_bridge.py
+python3 tools/rc_drive.py --no-gps
+```
 
 ## Running tests
 

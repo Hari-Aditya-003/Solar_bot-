@@ -3,8 +3,8 @@
 UART Scanner — finds which /dev/ttyAMA* is receiving data from RP3 V2
 Run with transmitter ON and RP3 V2 powered and bound.
 
-Usage:  python3 test_uart_scan.py
-        sudo python3 test_uart_scan.py   (if permission errors)
+Usage:  python3 tools/scan_uarts.py
+        sudo python3 tools/scan_uarts.py   (if permission errors)
 """
 import glob
 import time
@@ -53,7 +53,7 @@ def main():
     print()
     if found:
         print(f"  RESULT: Data detected on: {found}")
-        print(f"  Update SERIAL_PORT in test_rp3v2.py to: '{found[0]}'")
+        print(f"  Update SERIAL_PORT in tools/check_rp3v2.py to: '{found[0]}'")
     else:
         print("  RESULT: No data on any port.")
         print("  Check:")

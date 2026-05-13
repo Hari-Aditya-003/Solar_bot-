@@ -14,7 +14,7 @@ Wiring — UART to RPi 5
   Common GND
 
   Enable on RPi 5: dtoverlay=uart4-pi5 in /boot/firmware/config.txt
-  Run: python3 rc_drive.py --pico /dev/ttyAMA4
+  Run: python3 tools/rc_drive.py --pico /dev/ttyAMA4
 
 ─────────────────────────────────────────────────────────────────────────────
 Wiring — MPU-6050 IMU  (I2C0)

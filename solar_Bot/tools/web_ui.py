@@ -2,7 +2,7 @@
 Solar Bot Web Dashboard — Flask SSE server
 Browse to http://<raspberry-pi-ip>:8080 from any device on the same WiFi.
 
-Start from rc_drive.py:
+Start from tools/rc_drive.py:
     import web_ui
     web_ui.start(_state, _boundary, lambda: _mission, _stop, port=8080)
 """
@@ -11,6 +11,8 @@ import json
 import math
 import threading
 import time
+
+from _paths import PATH_DIR
 
 # References set by start()
 _state_ref     = None
@@ -1708,14 +1710,13 @@ def _run_flask(host, port):
     @app.route("/api/save_field", methods=["POST"])
     def api_save_field():
         from datetime import datetime
-        from pathlib import Path
 
         from flask import jsonify as fj
         data = request.get_json(silent=True) or {}
         boundary  = data.get("boundary",  [])
         waypoints = data.get("waypoints", [])
         ts   = datetime.now().strftime("%Y%m%d_%H%M%S")
-        path = Path(__file__).parent / "paths" / f"field_{ts}.json"
+        path = PATH_DIR / f"field_{ts}.json"
         try:
             path.parent.mkdir(parents=True, exist_ok=True)
             with open(path, "w") as f:
@@ -1781,11 +1782,9 @@ def _run_flask(host, port):
     @app.route("/api/missions", methods=["GET"])
     def api_missions():
         import json as _json
-        from pathlib import Path as _P
 
         from flask import jsonify as fj
-        path_dir = _P("paths")
-        files = sorted(path_dir.glob("mission_*.json"), reverse=True)
+        files = sorted(PATH_DIR.glob("mission_*.json"), reverse=True)
         result = []
         for f in files:
             try:
@@ -1802,14 +1801,12 @@ def _run_flask(host, port):
 
     @app.route("/api/load_mission", methods=["POST"])
     def api_load_mission():
-        from pathlib import Path as _P
-
         from flask import jsonify as fj
         data = request.get_json(silent=True) or {}
         name = data.get("name", "")
         if not name:
             return fj({"ok": False, "msg": "no filename given"})
-        path = _P("paths") / name
+        path = PATH_DIR / name
         if not path.exists():
             return fj({"ok": False, "msg": "file not found"})
         _state_ref["web_load_mission"] = str(path)
@@ -1823,7 +1820,7 @@ def start(state, boundary, mission_fn, stop_event, host="0.0.0.0", port=8080):
     """
     Start the web dashboard in a background daemon thread.
 
-    state       : _state dict from rc_drive.py
+    state       : _state dict from tools/rc_drive.py
     boundary    : BoundaryRecorder instance
     mission_fn  : callable returning current MissionRunner (or None)
     stop_event  : threading.Event — server exits when set
