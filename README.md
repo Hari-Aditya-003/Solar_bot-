@@ -2,7 +2,7 @@
 
 [![GitHub stars](https://img.shields.io/github/stars/Hari-Aditya-003/Solar_bot-?style=flat-square)](https://github.com/Hari-Aditya-003/Solar_bot-/stargazers)
 [![GitHub forks](https://img.shields.io/github/forks/Hari-Aditya-003/Solar_bot-?style=flat-square)](https://github.com/Hari-Aditya-003/Solar_bot-/forks)
-[![Default branch](https://img.shields.io/badge/branch-main-2563eb?style=flat-square)](https://github.com/Hari-Aditya-003/Solar_bot-/branches)
+[![Default branch](https://img.shields.io/badge/branch-main-2563eb?style=flat-square)](https://github.com/Hari-Aditya-003/Solar_bot-/tree/main)
 
 A solar-panel cleaning robot project with a Raspberry Pi mission planner, a Pico motor controller, GPS and non-GPS navigation, and a browser-based control interface.
 
@@ -14,7 +14,7 @@ This repository contains the application in **`solar_Bot/`**. Start with simulat
 - Switch between GPS-assisted and non-GPS navigation.
 - View robot position and telemetry through Flask and Socket.IO.
 - Connect a Raspberry Pi 5 to a Pico 2 W over UART or UDP.
-- Configure geofence, tilt, communications, battery, and emergency-stop limits.
+- Configure geofence, tilt, communications, and battery limits, and trigger emergency stop.
 - Save missions and use diagnostic tools during hardware bring-up.
 
 ## Quick start: simulation
@@ -32,7 +32,7 @@ cd solar_Bot
 python -m mission_planner.run_simulation
 ```
 
-Open [localhost:5000](http://localhost:5000). Simulation provides synthetic position updates and needs no GPS receiver or motor controller. The default configuration listens on all interfaces; use a trusted local network.
+Open [localhost:5000](http://localhost:5000). Simulation provides synthetic position updates and needs no GPS receiver or motor controller. The default configuration listens on all interfaces; use an isolated operator network with access limited to authorized devices.
 
 ## Project layout
 
@@ -69,7 +69,7 @@ A passing software suite does not verify physical wiring, motor direction, braki
 
 ## Deployment status
 
-The repository provides simulation, Pico firmware, and a Raspberry Pi systemd template. Hardware installation is site-specific: the checked-in service contains the original user's paths and must be adapted before installation. The current control server is intended for a trusted robot network and has no user-login boundary; do not expose it directly to the public internet.
+The repository provides simulation, Pico firmware, and a Raspberry Pi systemd template. Hardware installation is site-specific: the checked-in service contains the original user's paths and must be adapted before installation. The current control server is intended for an isolated robot network and has no user-login boundary. Restrict port 5000 to authorized operator devices at the firewall before exposing controls.
 
 ## Stars, forks, and branches
 

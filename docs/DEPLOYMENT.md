@@ -8,9 +8,9 @@ This guide runs the existing application as a systemd service on the robot's Ras
 - Wiring and UARTs configured using [WIRING.md](../solar_Bot/docs/WIRING.md).
 - Pico 2 W flashed with the MicroPython firmware from `solar_Bot/pico/main.py`.
 - Correct serial-port names and access for the service account.
-- A trusted robot network. The Flask/Socket.IO server has no user-authentication boundary and currently binds to `0.0.0.0:5000`.
+- An isolated operator network and firewall rules allowing port 5000 only from authorized operator devices. The Flask/Socket.IO server has no user-authentication boundary and currently binds to `0.0.0.0:5000`.
 
-Do not expose this control service directly to the public internet. Use simulation first and verify physical stops and motor direction before powering a robot on panels.
+Before network access, configure an allowlist for the authorized operator addresses and deny other clients at the Pi's firewall. Verify both allowed and denied access. Until that is in place, bind to `127.0.0.1` and keep controls local. Do not expose this control service directly to the public internet. Use simulation first and verify physical stops and motor direction before powering a robot on panels.
 
 ## 1. Install source and dependencies
 
@@ -33,7 +33,7 @@ Record the commit SHA and installed dependency versions with your field log. On 
 sudo usermod -aG dialout "$(id -un)"
 ```
 
-Confirm the actual device permissions; distribution-specific group names can differ.
+This command assumes the service will run as the current login account. If `User=` names another account, add that actual service account to the device group or include the group in its `SupplementaryGroups=` setting. Confirm the actual device permissions; distribution-specific group names can differ.
 
 ## 2. Configure and verify manually
 
@@ -70,15 +70,16 @@ These commands assume the current directory is `solar_Bot/`. Replace the followi
 | `ExecStart` | Absolute path to the checkout's `.venv/bin/python`, followed by `-m mission_planner.app` |
 | `SupplementaryGroups` | Only hardware groups that exist and are needed on this Pi |
 
-If using a configuration outside the checkout, append `--config /absolute/path/config.yaml` to `ExecStart`. Preserve `PYTHONUNBUFFERED=1` for readable logs.
+If using a configuration outside the checkout, append `--config /absolute/path/config.yaml` to `ExecStart`. Preserve `PYTHONUNBUFFERED=1` for readable logs. Verify that the service account can traverse the checkout, execute its virtual environment, and write the configured mission/path directories; avoid world-writable permissions.
 
 ## 4. Install and inspect
 
 ```bash
+sudo systemd-analyze verify /tmp/solarbot-mission.service
 sudo install -m 0644 /tmp/solarbot-mission.service /etc/systemd/system/solarbot-mission.service
-sudo systemd-analyze verify /etc/systemd/system/solarbot-mission.service
 sudo systemctl daemon-reload
-sudo systemctl enable --now solarbot-mission.service
+sudo systemctl enable solarbot-mission.service
+sudo systemctl restart solarbot-mission.service
 sudo systemctl status solarbot-mission.service --no-pager
 journalctl -u solarbot-mission.service -n 100 --no-pager
 ```
