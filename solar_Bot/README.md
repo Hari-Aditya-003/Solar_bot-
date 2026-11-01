@@ -40,6 +40,8 @@ mission_planner/config.yaml   all app tunables live here
 
 ## Quick start
 
+These commands assume your current directory is `solar_Bot/` and a Python virtual environment is active. For clone-to-run instructions, see the [repository README](../README.md). For installation as a Raspberry Pi service, see [deployment](../docs/DEPLOYMENT.md).
+
 ```bash
 # 1. install deps (on the Pi or your laptop)
 pip install -r requirements.txt
